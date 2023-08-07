@@ -1,0 +1,84 @@
+## Java 8 
+
+- Java 8 特性一览
+  - Stream API
+  - 向方法传递代码
+  - 接口中的默认方法
+- 意义：简洁、高效（并发）
+- 核心思想：函数作为值传递。
+  - 命名函数：Class::Method。如 Apple::isGreenApple
+  - 匿名函数（Lambda）：一个简单的例子 ：(Apple a) -> "green".equals(a.getColor())
+
+- Lambda：
+  - 特性：匿名、函数、可作为值传递、简洁
+  - 构成：([params]) -> [main body]
+    - 参数：可以为空
+    - 主体：
+      - 一行：[expression]。隐式地返回值
+      - 多行：{[statement;s]}。可以返回、可以不返回
+  - 函数式接口：只定义 **一个** **抽象方法** 的接口
+    - 作用：直接用Lambda作为接口的实例。（所以只能定义一个抽象方法）
+    - 会进行类型检查（签名，即参数-返回值二元组），但是允许void兼容。
+  - 常用的函数式接口：
+    - `Runnable - run: () -> void`
+    - `Consumer<T> - accept: (T) -> void`
+    - `Predicate<T> - test: (T) -> boolean`
+    - `Function<T, R> - apply: (T) -> R`
+    - `Supplier<T> - get: () -> T`
+    - 常用的前后缀：Unary / Bi ｜ Operator
+    - 原始类型特化：如用 `IntPredicate` 取代 `Predicate<Integer>`, 避免装箱拆箱。
+  - 异常处理：Lambda不允许抛出异常。可以在自定义的函数式接口中声明抛出，或者用try/catch块。
+  - 类型推断：在函数式接口明确的情况下，参数当中的类型声明可以省略。
+  - 使用自由变量：只能捕获final的，或者事实final（即只有一个assignment）。为了并发安全。
+  - 方法引用：从已有的方法，推断创建Lambda表达式，也就是上面提到的命名函数。如 `Apple::isGreenApple == (Apple a) -> a.isGreenApple()`。引用头可以是类名、变量名。
+  - 复合Lambda表达式：常见的几个函数式接口都提供了一些默认方法（不是抽象方法！），可以通过复合语义生成新的函数式接口。举例：
+    - `Comparator<T>.reverse() / .thenComparing(...)`
+    - `Predicate<T>.negate() / .and(...) / .or(...)`
+    - `Function<R, T>.andThen(...) / compose(...)`
+
+- 流：从源生成的元素序列，支持数据处理操作。
+  - 源：提供数据。如数组、集合等
+  - 数据处理操作：可以顺序执行、并行执行，会内部优化。
+  - 流水线：很多操作本身会生成一个新流，然后进行下一步操作，直到结束。
+  - 流的生成：调用源的stream()方法。
+  - 流的常见中间操作：能够生成另一个流
+    - `filter(Predicate<T>)`：过滤元素
+    - `map(Function<T, R>)`：转换元素
+    - `limit(int)`：参考数据库操作
+    - `sorted(Comparator<T>)`：排序元素
+    - `distinct()`：去重
+  - 常见终端操作：生成结果（非流的）
+    - `forEach(Lambda)`
+    - `count()`: return long
+    - `collect()`: collect stream into List/Map/Integer
+  - 以功能分，流的操作：
+    - 筛选和切片
+      - `filter(Predicate<T>)`
+      - `distinct()`
+      - `limit(int)`
+      - `skip(int)`: skip n elements, complementary with `limit`
+    - 映射：转换元素
+      - `map(T -> U)`
+      - `flatMap(T -> Stream<U>)`：把每个T转换成U流，再把所有的U流连接。
+    - 查找和匹配：
+      - [T] `anyMatch(Predicate)`: exists
+      - [T] `allMatch(Pre)`: for all
+      - [T] `noneMatch(Pre)`: not exists
+      - [T] `findAny()`: 返回流当中的任意元素，作为Optional<T>
+      - [T] `findFirst()`: as Optional<T>
+    - [T] 归约：将流中的元素组合起来。`reduce(initVal, (T, T) -> T)` as T / `reduce((T, T) -> T)` as Optional<T>
+      - 求和：`int sum = intList.stream().reduce(0, Integer::sum)`
+      - 最大/最小值：`int maxVal = intList.stream().reduce(Integer.MinValue, Integer::max)` / `Optional<Integer> maxVal = intList.stream().reduce(Integer::max) / intList.stream().max(Comparator.naturalOrder())` 
+  - 数值流：原始类型流特化：IntStream, DoubleStream, LongStream
+    - 优势：避免装箱；支持新方法，如sum(), max()。
+    - 转换数值流：例如：`mapToInt(T -> int)`
+    - 转回对象流：装箱boxed() / 直转mapToObj(...)
+    - 默认值：IntStream.max()返回OptionalInt
+  - 生成流：
+    - 范围IntStream：IntStream.range(start, end) / rangeClosed(start, end)
+    - 由值：Stream.of()
+    - 由数组：Arrays.stream(arr)
+    - 由文件：`Files.lines()`，流的每个元素都是文件的一行。
+    - 由函数：包括两种方式，迭代和生成。
+      - 迭代：通过 $a_0=v, a_n=f(a_{n-1})$ 得到。如 `Stream.iterate(1, n->n+2)` for $a_0=1, a_n=a_{n-1}+2$。
+      - 生成：`Stream.generate(() -> T)`。如果想要得到有状态的生成器，可以用匿名类重写Supplier。
